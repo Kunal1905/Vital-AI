@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1771651086888,
+      "tag": "0000_flimsy_old_lace",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771661795275,
+      "tag": "0001_add_onboarding_completed",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771662153586,
+      "tag": "0002_add_onboarding_profile_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1771662531464,
+      "tag": "0003_split_onboarding_into_separate_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1771854077925,
+      "tag": "0004_add_session_and_risk_tables_retry",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1771872793804,
+      "tag": "0005_phase0_schema_fixes",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772605459609,
+      "tag": "0006_session_vitals_risk_schema_update",
+      "breakpoints": true
+    }
+  ]
+}

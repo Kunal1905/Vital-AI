@@ -1,0 +1,48 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@clerk/backend": "^2.31.2",
+    "@clerk/express": "^1.7.73",
+    "@neondatabase/serverless": "^1.0.2",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "drizzle-orm": "^0.45.1",
+    "express": "^5.2.1",
+    "morgan": "^1.10.1",
+    "node-cron": "^3.0.3",
+    "pg": "^8.20.0",
+    "postgres": "^3.4.8",
+    "resend": "^4.0.0",
+    "twilio": "^5.12.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^25.3.0",
+    "@types/node-cron": "^3.0.9",
+    "@types/pg": "^8.16.0",
+    "@types/twilio": "^3.19.2",
+    "drizzle-kit": "^0.31.9",
+    "nodemon": "^3.1.13",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.0"
+  }
+}
