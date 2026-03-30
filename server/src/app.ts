@@ -33,4 +33,16 @@ app.use(express.json());
 app.use(morgan("dev"));
 app.use(clerkMiddleware());
 
+app.get("/", (_req, res) => {
+  res.json({
+    status: "ok",
+    service: "vital-api",
+    message: "Backend is running. Use /api/* endpoints.",
+  });
+});
+
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok" });
+});
+
 export default app;
