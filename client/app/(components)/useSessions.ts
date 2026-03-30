@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@clerk/nextjs";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type ApiSession = {
   id: number;
@@ -116,6 +116,22 @@ export function useSessions(options: { limit: number; refreshIntervalMs?: number
   const [error, setError] = useState<string | null>(null);
   const lastFetchRef = useRef<number>(0);
 
+  const refresh = useCallback(async () => {
+    if (!isLoaded || !isSignedIn) return;
+    setError(null);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Missing auth token.");
+      const data = await loadSessions(token, limit, true);
+      setRows(data);
+      setLoading(false);
+      lastFetchRef.current = Date.now();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load sessions");
+      setLoading(false);
+    }
+  }, [getToken, isLoaded, isSignedIn, limit]);
+
   useEffect(() => {
     let alive = true;
     const controller = new AbortController();
@@ -165,5 +181,5 @@ export function useSessions(options: { limit: number; refreshIntervalMs?: number
     };
   }, [isLoaded, isSignedIn, getToken, limit, refreshIntervalMs]);
 
-  return { rows, loading, error };
+  return { rows, loading, error, refresh };
 }
