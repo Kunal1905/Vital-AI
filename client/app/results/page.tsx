@@ -3,7 +3,7 @@
 import { SignedIn, UserButton, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 type SessionPayload = {
   session: {
@@ -290,7 +290,7 @@ function getScoreTone(score: number) {
   return { label: "High", color: "#ff5f5f", border: "#8a2b2b" };
 }
 
-export default function ResultsPage() {
+function ResultsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth();
@@ -631,5 +631,23 @@ function NavButton({
       <span className={`text-xl ${active ? "text-[#1bb5ff]" : "text-[#90a7d8]"}`}>{icon}</span>
       <span className={`text-xs ${active ? "text-[#1bb5ff]" : "text-[#90a7d8]"}`}>{label}</span>
     </Link>
+  );
+}
+
+export default function ResultsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#020817] text-[#dbe4f3]">
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 pb-24 pt-10 sm:px-6">
+            <div className="rounded-3xl border border-[#1b2a4b] bg-[#0a1330] p-6 text-sm text-[#7c8fbf]">
+              Loading your assessment...
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <ResultsContent />
+    </Suspense>
   );
 }
