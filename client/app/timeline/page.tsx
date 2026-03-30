@@ -39,7 +39,7 @@ function formatTickTime(iso: string) {
 
 export default function TimelinePage() {
   const [selectedView, setSelectedView] = useState<TimelineView>("trend");
-  const { rows, error } = useSessions({ limit: 90, refreshIntervalMs: 60000 });
+  const { rows, error, refresh } = useSessions({ limit: 90, refreshIntervalMs: 60000 });
   const [showStress, setShowStress] = useState(true);
   const [showSeverity, setShowSeverity] = useState(false);
 
@@ -161,7 +161,7 @@ export default function TimelinePage() {
                   </label>
                 </div>
                 <button
-                  onClick={() => setRefreshNonce((prev) => prev + 1)}
+                  onClick={() => void refresh()}
                   className="rounded-full border border-[#2c4679] px-3 py-1 text-xs text-[#b8c9ee] transition hover:border-[#4c6fb0] hover:bg-[#122245]"
                 >
                   Refresh
