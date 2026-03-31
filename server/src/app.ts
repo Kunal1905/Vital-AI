@@ -5,11 +5,27 @@ import { clerkMiddleware } from "@clerk/express";
 
 const app = express();
 
-const allowedOrigins = new Set([
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
+const envOrigins = [
   process.env.CLIENT_URL,
-]);
+  process.env.FRONTEND_URL,
+  process.env.NEXT_PUBLIC_APP_URL,
+  process.env.NEXT_PUBLIC_SITE_URL,
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+  process.env.VERCEL_URL ? `http://${process.env.VERCEL_URL}` : undefined,
+];
+
+const extraAllowlist = process.env.CORS_ALLOWLIST
+  ? process.env.CORS_ALLOWLIST.split(",").map((entry) => entry.trim())
+  : [];
+
+const allowedOrigins = new Set(
+  [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    ...envOrigins,
+    ...extraAllowlist,
+  ].filter(Boolean),
+);
 
 console.log("CORS allowed origins:", Array.from(allowedOrigins));
 
