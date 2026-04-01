@@ -3,6 +3,9 @@ import { alertLog, emergencyContacts, familyAlertLog } from '../models'
 import { eq } from 'drizzle-orm'
 import twilio from 'twilio'
 
+const ONESIGNAL_API_URL =
+  process.env.ONESIGNAL_API_URL ?? 'https://api.onesignal.com/notifications'
+
 type TriggerType = 'red_flag' | 'high_risk' | 'manual' | 'inactivity'
 type AlertType =
   | 'escalation_day7'
@@ -17,6 +20,7 @@ interface EmergencyContactRow {
   name: string
   phone: string
   email?: string | null
+  pushSubscriptionId?: string | null
   relation: string
   isPrimary: boolean
   notifyOnHighRisk: boolean
@@ -25,6 +29,21 @@ interface EmergencyContactRow {
   notifyOnInactivity?: boolean
   includeSymptomName: boolean
   includeRiskScore: boolean
+}
+
+function getOneSignalConfig(): { appId: string; apiKey: string } | null {
+  const appId = process.env.ONESIGNAL_APP_ID
+  const apiKey = process.env.ONESIGNAL_REST_API_KEY
+
+  if (!appId || !apiKey) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('ONESIGNAL_APP_ID and ONESIGNAL_REST_API_KEY must be set in production')
+    }
+    console.warn('OneSignal not configured — push notifications will be logged only')
+    return null
+  }
+
+  return { appId, apiKey }
 }
 
 let _twilioClient: ReturnType<typeof twilio> | null = null
@@ -121,6 +140,45 @@ async function sendTwilioSms(params: {
   }
 }
 
+async function sendOneSignalNotification(params: {
+  subscriptionId: string
+  heading: string
+  content: string
+  data?: Record<string, unknown>
+}): Promise<{ delivered: boolean; error?: string }> {
+  const config = getOneSignalConfig()
+  if (!config) {
+    console.log(`[DEV PUSH] To subscription: ${params.subscriptionId}`)
+    console.log(`[DEV PUSH] ${params.heading}: ${params.content}`)
+    return { delivered: true }
+  }
+
+  const payload = {
+    app_id: config.appId,
+    target_channel: 'push',
+    include_subscription_ids: [params.subscriptionId],
+    headings: { en: params.heading },
+    contents: { en: params.content },
+    data: params.data ?? {},
+  }
+
+  const response = await fetch(ONESIGNAL_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Key ${config.apiKey}`,
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    return { delivered: false, error: `OneSignal error ${response.status}: ${text}` }
+  }
+
+  return { delivered: true }
+}
+
 export async function triggerFamilyAlert(
   contact: EmergencyContactRow,
   triageLevel: string,
@@ -147,17 +205,35 @@ export async function triggerFamilyAlert(
   let delivered = false
   let deliveryError: string | undefined
 
-  if (!contact.phone) {
-    deliveryError = 'Emergency contact does not have a phone number'
-    console.warn(deliveryError)
-  } else {
+  if (contact.pushSubscriptionId) {
+    try {
+      const result = await sendOneSignalNotification({
+        subscriptionId: contact.pushSubscriptionId,
+        heading: 'Vital Alert',
+        content: message,
+        data: {
+          sessionId,
+          triageLevel,
+          triggerType,
+          riskScore,
+        },
+      })
+      delivered = result.delivered
+      deliveryError = result.error
+    } catch (err: any) {
+      deliveryError = err?.message ?? 'Unknown OneSignal error'
+      console.error(`Push alert failed for contact ${contact.id}:`, deliveryError)
+    }
+  }
+
+  if (!delivered && contact.phone) {
     try {
       const result = await sendTwilioSms({
         to: contact.phone,
         body: message,
       })
       delivered = result.delivered
-      deliveryError = result.error
+      deliveryError = result.error ?? deliveryError
     } catch (err: any) {
       deliveryError = err?.message ?? 'Unknown Twilio error'
       console.error(`SMS alert failed for contact ${contact.id}:`, deliveryError)
@@ -225,6 +301,7 @@ export async function getAlertableContacts(
     name: c.name,
     phone: c.phone,
     email: c.email ?? null,
+    pushSubscriptionId: c.pushSubscriptionId ?? null,
     relation: c.relation,
     isPrimary: c.isPrimary,
     notifyOnHighRisk: true,

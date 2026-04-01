@@ -41,10 +41,9 @@ export default function OnboardingPage() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pushStatus, setPushStatus] = useState<"idle" | "prompting" | "enabled" | "saving" | "error" | "loading">("loading");
+  const [pushStatus, setPushStatus] = useState<"idle" | "prompting" | "enabled" | "saving" | "error" | "loading">("idle");
   const [pushError, setPushError] = useState<string | null>(null);
   const [pushSubscriptionId, setPushSubscriptionId] = useState<string | null>(null);
-  const [pushSaved, setPushSaved] = useState(false);
   const router = useRouter();
   const { getToken } = useAuth();
   const oneSignalAppId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
@@ -76,218 +75,26 @@ export default function OnboardingPage() {
     }
   };
 
-  useEffect(() => {
-    if (!oneSignalAppId || typeof window === "undefined") return;
+  const loadOneSignal = async () => {
+    if (typeof window === "undefined") return null;
+    if ((window as any).OneSignal) return (window as any).OneSignal;
 
-    const initializeOneSignal = async () => {
-      setPushStatus("loading");
-      try {
-        console.log('🔵 Starting OneSignal initialization...');
-        
-        // Check network accessibility first
-        try {
-          console.log('🌐 Testing CDN connectivity...');
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
-          
-          const response = await fetch('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js', {
-            method: 'HEAD',
-            signal: controller.signal,
-          });
-          clearTimeout(timeoutId);
-          
-          if (response.ok) {
-            console.log('✅ CDN is accessible (status:', response.status + ')');
-          } else {
-            console.warn('⚠️ CDN returned:', response.status, response.statusText);
-          }
-        } catch (fetchErr) {
-          console.error('❌ Cannot reach OneSignal CDN:', (fetchErr as Error).message);
-          console.error('👉 This is likely a network/firewall/ad-blocker issue');
-          setPushStatus("error");
-          setPushError("OneSignal is blocked by a network rule or ad blocker. Please allow cdn.onesignal.com and refresh.");
-          return;
-        }
-        
-        // Manually inject the script with better error tracking
-        const existingScript = document.querySelector('script[src*="OneSignalSDK"]');
-        if (!existingScript) {
-          console.log('📥 Injecting OneSignal SDK script...');
-          const script = document.createElement('script');
-          script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
-          script.async = true;
-          script.type = 'text/javascript';
-          
-          // Track script loading errors
-          script.onerror = (err) => {
-            console.error('❌ Script onerror event fired:', err);
-            console.error('Check Network tab - the script request probably failed');
-          };
-          script.onload = () => {
-            console.log('✅ Script onload event fired');
-            // Give it a moment to execute
-            setTimeout(() => {
-              console.log('After onload - window.OneSignal exists:', !!(window as any).OneSignal);
-            }, 100);
-          };
-          
-          document.head.appendChild(script);
-          console.log('📝 Script injected, waiting for it to execute...');
-        } else {
-          console.log('✅ OneSignal script already exists in DOM');
-          console.log('Current script src:', existingScript.getAttribute('src'));
-        }
-
-        // Set up OneSignal deferred queue
-        window.OneSignalDeferred = window.OneSignalDeferred || [];
-        
-        // Wait for OneSignal to be available
-        await new Promise<void>((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            console.error('❌ OneSignal SDK timeout after 15 seconds');
-            console.error('🔍 Debug info:');
-            console.error('- Script in DOM:', !!document.querySelector('script[src*="OneSignalSDK"]'));
-            console.error('- window.OneSignal:', typeof (window as any).OneSignal);
-            
-            // Additional debug
-            const script = document.querySelector('script[src*="OneSignalSDK"]');
-            if (script) {
-              console.error('- Script element:', script);
-              console.error('- Script src:', script.getAttribute('src'));
-            }
-            
-            console.error('- Check Network tab for failed requests to cdn.onesignal.com');
-            console.error('- Check Console for any red errors about blocked/failed scripts');
-            setPushStatus("error");
-            setPushError("OneSignal SDK didn't load. It looks blocked by a browser extension or network policy.");
-            resolve();
-          }, 15000);
-
-          // Check if OneSignal is available
-          const checkOneSignal = () => {
-            const win = window as any;
-            if (win.OneSignal && typeof win.OneSignal.init === 'function') {
-              clearTimeout(timeout);
-              console.log('✅ OneSignal SDK loaded successfully');
-              resolve();
-            } else {
-              setTimeout(checkOneSignal, 200);
-            }
-          };
-          checkOneSignal();
-        });
-
-        if (!(window as any).OneSignal) {
-          return;
-        }
-
-        const OneSignal = (window as any).OneSignal;
-        console.log('OneSignal object exists:', !!OneSignal);
-        
-        // Check if already initialized
-        if (!OneSignal.initialized) {
-          console.log('Initializing OneSignal with appId:', oneSignalAppId);
-          try {
-            await OneSignal.init({
-              appId: oneSignalAppId,
-              allowLocalhostAsSecureOrigin: true,
-              notifyButton: {
-                enable: false, // We're using our own button
-              },
-            });
-          } catch (initErr: any) {
-            const msg = initErr?.message || "";
-            if (msg.includes("Can only be used on:")) {
-              setPushStatus("error");
-              setPushError(
-                "OneSignal is locked to a specific site URL. Add localhost to the OneSignal Web config or test on your deployed URL."
-              );
-              return;
-            }
-            throw initErr;
-          }
-          console.log('✓ OneSignal initialized successfully');
-        } else {
-          console.log('OneSignal already initialized');
-        }
-
-        const getOptInStatus = async () => {
-          if (OneSignal?.User?.PushSubscription?.getOptInStatus) {
-            return OneSignal.User.PushSubscription.getOptInStatus();
-          }
-          if (OneSignal?.Notifications?.getPermissionStatus) {
-            const status = await OneSignal.Notifications.getPermissionStatus();
-            return status === "granted";
-          }
-          if (OneSignal?.isPushNotificationsEnabled) {
-            return OneSignal.isPushNotificationsEnabled();
-          }
-          return false;
-        };
-
-        const getSubscriptionId = async () => {
-          const directId = OneSignal?.User?.PushSubscription?.id;
-          if (directId) return directId;
-          if (OneSignal?.getUserId) {
-            return OneSignal.getUserId();
-          }
-          return null;
-        };
-
-        // Get current subscription status
-        const isPushEnabled = await getOptInStatus();
-        console.log('Push opt-in status:', isPushEnabled);
-
-        const currentId = await getSubscriptionId();
-        console.log('Current push ID:', currentId);
-        
-        if (currentId) {
-          setPushSubscriptionId(currentId);
-          setPushStatus("enabled");
-        }
-
-        // Listen for subscription changes
-        if (OneSignal?.User?.PushSubscription?.addEventListener) {
-          OneSignal.User.PushSubscription.addEventListener("change", (event: any) => {
-            console.log('Push subscription changed:', event);
-            const nextId = event?.current?.id;
-            if (nextId) {
-              setPushSubscriptionId(nextId);
-            }
-          });
-        }
-        
-        // Mark as ready
-        setPushStatus("idle");
-      } catch (err) {
-        console.error('OneSignal initialization error:', err);
-        setPushStatus("error");
-        setPushError(err instanceof Error ? err.message : "Failed to initialize push notifications");
+    await new Promise<void>((resolve, reject) => {
+      const existing = document.querySelector('script[src*="OneSignalSDK"]');
+      if (existing) {
+        resolve();
+        return;
       }
-    };
+      const script = document.createElement("script");
+      script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Failed to load OneSignal SDK."));
+      document.head.appendChild(script);
+    });
 
-    initializeOneSignal();
-  }, [oneSignalAppId]);
-
-  useEffect(() => {
-    if (!pushSubscriptionId || pushSaved || pushStatus === "saving") return;
-
-    const persistPushId = async () => {
-      try {
-        const token = await getToken();
-        if (!token) return;
-        setPushStatus("saving");
-        await saveEmergencyContact(token, pushSubscriptionId);
-        setPushSaved(true);
-        setPushStatus("enabled");
-      } catch (err) {
-        setPushStatus("error");
-        setPushError(err instanceof Error ? err.message : "Failed to save push subscription");
-      }
-    };
-
-    void persistPushId();
-  }, [pushSubscriptionId, pushSaved, pushStatus, getToken]);
+    return (window as any).OneSignal ?? null;
+  };
 
   const enablePush = async () => {
     if (!oneSignalAppId) {
@@ -302,69 +109,76 @@ export default function OnboardingPage() {
     }
 
     setPushError(null);
-    setPushStatus("prompting");
-    
+    setPushStatus("loading");
     try {
-      const win = window as any;
-      
-      // Wait for OneSignal to be available if not already
-      if (!win.OneSignal || !win.OneSignal.User) {
-        console.log('OneSignal not ready, waiting...');
+      const OneSignal = await loadOneSignal();
+      if (!OneSignal) {
         setPushStatus("error");
-        setPushError("OneSignal is loading. Please wait a moment and try again.");
+        setPushError("OneSignal SDK not available.");
         return;
       }
 
-      const OneSignal = win.OneSignal;
-      
-      // Check current permission status
-      const currentOptIn = OneSignal?.User?.PushSubscription?.getOptInStatus
-        ? await OneSignal.User.PushSubscription.getOptInStatus()
-        : OneSignal?.Notifications?.getPermissionStatus
-          ? (await OneSignal.Notifications.getPermissionStatus()) === "granted"
-          : OneSignal?.isPushNotificationsEnabled
-            ? await OneSignal.isPushNotificationsEnabled()
-            : false;
-      console.log('Current opt-in before prompt:', currentOptIn);
+      if (!OneSignal.initialized) {
+        try {
+          await OneSignal.init({
+            appId: oneSignalAppId,
+            allowLocalhostAsSecureOrigin: true,
+            notifyButton: { enable: false },
+          });
+        } catch (err: any) {
+          const msg = err?.message ?? "";
+          if (msg.includes("Can only be used on:")) {
+            setPushStatus("error");
+            setPushError("OneSignal is locked to a specific site URL. Update the Site URL in OneSignal Web configuration.");
+            return;
+          }
+          throw err;
+        }
+      }
 
-      // Request permission
-      if (OneSignal?.User?.PushSubscription?.optIn) {
-        await OneSignal.User.PushSubscription.optIn();
-      } else if (OneSignal?.Notifications?.requestPermission) {
+      setPushStatus("prompting");
+      if (OneSignal?.Notifications?.requestPermission) {
         await OneSignal.Notifications.requestPermission();
+      } else if (OneSignal?.User?.PushSubscription?.optIn) {
+        await OneSignal.User.PushSubscription.optIn();
       } else if (OneSignal?.registerForPushNotifications) {
         await OneSignal.registerForPushNotifications();
-      } else {
-        throw new Error("OneSignal push API not available.");
       }
-      
-      // Get the new subscription status
-      const newOptIn = OneSignal?.User?.PushSubscription?.getOptInStatus
-        ? await OneSignal.User.PushSubscription.getOptInStatus()
-        : OneSignal?.Notifications?.getPermissionStatus
-          ? (await OneSignal.Notifications.getPermissionStatus()) === "granted"
-          : OneSignal?.isPushNotificationsEnabled
-            ? await OneSignal.isPushNotificationsEnabled()
-            : false;
-      console.log('New opt-in after prompt:', newOptIn);
-      
-      const nextId = OneSignal?.User?.PushSubscription?.id ?? (OneSignal?.getUserId ? await OneSignal.getUserId() : null);
-      console.log('Push subscription ID:', nextId);
-      
-      if (nextId && newOptIn) {
-        setPushSubscriptionId(nextId);
-        setPushStatus("enabled");
-      } else if (!newOptIn) {
+
+      const permission = OneSignal?.Notifications?.getPermissionStatus
+        ? await OneSignal.Notifications.getPermissionStatus()
+        : "denied";
+
+      if (permission !== "granted") {
         setPushStatus("error");
-        setPushError("Push notification permission was denied. Please enable notifications in your browser settings.");
-      } else {
-        setPushStatus("error");
-        setPushError("Push enabled, but no subscription id was returned. Try refreshing the page.");
+        setPushError("Push permission was denied. Please enable notifications in your browser settings.");
+        return;
       }
+
+      const nextId =
+        OneSignal?.User?.PushSubscription?.id ??
+        (OneSignal?.getUserId ? await OneSignal.getUserId() : null);
+
+      if (!nextId) {
+        setPushStatus("error");
+        setPushError("Push enabled, but no subscription ID was returned.");
+        return;
+      }
+
+      const token = await getToken();
+      if (!token) {
+        setPushStatus("error");
+        setPushError("Authentication token missing.");
+        return;
+      }
+
+      setPushStatus("saving");
+      await saveEmergencyContact(token, nextId);
+      setPushSubscriptionId(nextId);
+      setPushStatus("enabled");
     } catch (err) {
-      console.error('Push enable error:', err);
       setPushStatus("error");
-      setPushError(err instanceof Error ? err.message : "Push permission was not granted.");
+      setPushError(err instanceof Error ? err.message : "Failed to enable push alerts.");
     }
   };
 
