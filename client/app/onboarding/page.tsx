@@ -93,7 +93,24 @@ export default function OnboardingPage() {
       document.head.appendChild(script);
     });
 
-    return (window as any).OneSignal ?? null;
+    const waitForOneSignal = await new Promise<any | null>((resolve) => {
+      const startedAt = Date.now();
+      const tick = () => {
+        const os = (window as any).OneSignal;
+        if (os) {
+          resolve(os);
+          return;
+        }
+        if (Date.now() - startedAt > 8000) {
+          resolve(null);
+          return;
+        }
+        setTimeout(tick, 200);
+      };
+      tick();
+    });
+
+    return waitForOneSignal;
   };
 
   const enablePush = async () => {
@@ -114,7 +131,7 @@ export default function OnboardingPage() {
       const OneSignal = await loadOneSignal();
       if (!OneSignal) {
         setPushStatus("error");
-        setPushError("OneSignal SDK not available.");
+        setPushError("OneSignal SDK not available. Check ad blockers or site URL configuration.");
         return;
       }
 
