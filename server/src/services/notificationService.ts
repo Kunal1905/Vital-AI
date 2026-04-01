@@ -1,9 +1,7 @@
 import { db } from '../config/db'
 import { alertLog, emergencyContacts, familyAlertLog } from '../models'
 import { eq } from 'drizzle-orm'
-
-const ONESIGNAL_API_URL =
-  process.env.ONESIGNAL_API_URL ?? 'https://api.onesignal.com/notifications'
+import twilio from 'twilio'
 
 type TriggerType = 'red_flag' | 'high_risk' | 'manual' | 'inactivity'
 type AlertType =
@@ -19,7 +17,6 @@ interface EmergencyContactRow {
   name: string
   phone: string
   email?: string | null
-  pushSubscriptionId?: string | null
   relation: string
   isPrimary: boolean
   notifyOnHighRisk: boolean
@@ -30,19 +27,24 @@ interface EmergencyContactRow {
   includeRiskScore: boolean
 }
 
-function getOneSignalConfig(): { appId: string; apiKey: string } | null {
-  const appId = process.env.ONESIGNAL_APP_ID
-  const apiKey = process.env.ONESIGNAL_REST_API_KEY
+let _twilioClient: ReturnType<typeof twilio> | null = null
 
-  if (!appId || !apiKey) {
+function getTwilioClient(): ReturnType<typeof twilio> | null {
+  if (_twilioClient) return _twilioClient
+
+  const sid = process.env.TWILIO_ACCOUNT_SID
+  const token = process.env.TWILIO_AUTH_TOKEN
+
+  if (!sid || !token) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('ONESIGNAL_APP_ID and ONESIGNAL_REST_API_KEY must be set in production')
+      throw new Error('TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must be set in production')
     }
-    console.warn('OneSignal not configured — push notifications will be logged only')
+    console.warn('Twilio not configured — SMS will be logged only')
     return null
   }
 
-  return { appId, apiKey }
+  _twilioClient = twilio(sid, token)
+  return _twilioClient
 }
 
 function buildFamilyAlertMessage(
@@ -82,43 +84,41 @@ function buildFamilyAlertMessage(
   return `${userName} wanted to let you know they're not feeling great today and used Vital to check their symptoms. No emergency — just a heads up. — Vital Health App`
 }
 
-async function sendOneSignalNotification(params: {
-  subscriptionId: string
-  heading: string
-  content: string
-  data?: Record<string, unknown>
+async function sendTwilioSms(params: {
+  to: string
+  body: string
 }): Promise<{ delivered: boolean; error?: string }> {
-  const config = getOneSignalConfig()
-  if (!config) {
-    console.log(`[DEV PUSH] To subscription: ${params.subscriptionId}`)
-    console.log(`[DEV PUSH] ${params.heading}: ${params.content}`)
+  const client = getTwilioClient()
+  if (!client) {
+    console.log(`[DEV SMS] To: ${params.to}`)
+    console.log(`[DEV SMS] ${params.body}`)
     return { delivered: true }
   }
 
-  const payload = {
-    app_id: config.appId,
-    target_channel: 'push',
-    include_subscription_ids: [params.subscriptionId],
-    headings: { en: params.heading },
-    contents: { en: params.content },
-    data: params.data ?? {},
+  const fromNumber = process.env.TWILIO_PHONE_NUMBER
+  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID
+
+  if (!fromNumber && !messagingServiceSid) {
+    const msg = 'TWILIO_PHONE_NUMBER or TWILIO_MESSAGING_SERVICE_SID must be set'
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(msg)
+    }
+    console.warn(msg)
+    console.log(`[DEV SMS] To: ${params.to}`)
+    console.log(`[DEV SMS] ${params.body}`)
+    return { delivered: true }
   }
 
-  const response = await fetch(ONESIGNAL_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Key ${config.apiKey}`,
-    },
-    body: JSON.stringify(payload),
-  })
-
-  if (!response.ok) {
-    const text = await response.text()
-    return { delivered: false, error: `OneSignal error ${response.status}: ${text}` }
+  try {
+    await client.messages.create({
+      to: params.to,
+      body: params.body,
+      ...(messagingServiceSid ? { messagingServiceSid } : { from: fromNumber }),
+    })
+    return { delivered: true }
+  } catch (err: any) {
+    return { delivered: false, error: err?.message ?? 'Unknown Twilio error' }
   }
-
-  return { delivered: true }
 }
 
 export async function triggerFamilyAlert(
@@ -147,27 +147,20 @@ export async function triggerFamilyAlert(
   let delivered = false
   let deliveryError: string | undefined
 
-  if (!contact.pushSubscriptionId) {
-    deliveryError = 'Emergency contact does not have a push subscription id'
+  if (!contact.phone) {
+    deliveryError = 'Emergency contact does not have a phone number'
     console.warn(deliveryError)
   } else {
     try {
-      const result = await sendOneSignalNotification({
-        subscriptionId: contact.pushSubscriptionId,
-        heading: 'Vital Alert',
-        content: message,
-        data: {
-          sessionId,
-          triageLevel,
-          triggerType,
-          riskScore,
-        },
+      const result = await sendTwilioSms({
+        to: contact.phone,
+        body: message,
       })
       delivered = result.delivered
       deliveryError = result.error
     } catch (err: any) {
-      deliveryError = err?.message ?? 'Unknown OneSignal error'
-      console.error(`Push alert failed for contact ${contact.id}:`, deliveryError)
+      deliveryError = err?.message ?? 'Unknown Twilio error'
+      console.error(`SMS alert failed for contact ${contact.id}:`, deliveryError)
     }
   }
 
@@ -232,7 +225,6 @@ export async function getAlertableContacts(
     name: c.name,
     phone: c.phone,
     email: c.email ?? null,
-    pushSubscriptionId: c.pushSubscriptionId ?? null,
     relation: c.relation,
     isPrimary: c.isPrimary,
     notifyOnHighRisk: true,
