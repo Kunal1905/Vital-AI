@@ -146,7 +146,11 @@ export default function OnboardingPage() {
           const msg = err?.message ?? "";
           if (msg.includes("Can only be used on:")) {
             setPushStatus("error");
-            setPushError("OneSignal is locked to a specific site URL. Update the Site URL in OneSignal Web configuration.");
+            setPushError(
+              `OneSignal site URL mismatch. Allowed site (from SDK): ${msg.replace("Can only be used on:", "").trim()}. ` +
+              `Current site: ${typeof window !== "undefined" ? window.location.origin : "unknown"}. ` +
+              `Update OneSignal Web Push Site URL to match.`,
+            );
             return;
           }
           throw err;
