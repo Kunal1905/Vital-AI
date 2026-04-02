@@ -44,6 +44,9 @@ export default function OnboardingPage() {
   const [pushStatus, setPushStatus] = useState<"idle" | "prompting" | "enabled" | "saving" | "error" | "loading">("idle");
   const [pushError, setPushError] = useState<string | null>(null);
   const [pushSubscriptionId, setPushSubscriptionId] = useState<string | null>(null);
+  const [debugSdkLoaded, setDebugSdkLoaded] = useState(false);
+  const [debugSdkType, setDebugSdkType] = useState("unknown");
+  const [debugDeferredReady, setDebugDeferredReady] = useState(false);
   const router = useRouter();
   const { getToken } = useAuth();
   const oneSignalAppId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
@@ -77,7 +80,12 @@ export default function OnboardingPage() {
 
   const loadOneSignal = async () => {
     if (typeof window === "undefined") return null;
-    if ((window as any).OneSignal) return (window as any).OneSignal;
+    const existing = (window as any).OneSignal;
+    setDebugSdkType(typeof existing);
+    setDebugSdkLoaded(Boolean(existing));
+    if (existing && typeof existing === "object" && typeof existing.init === "function") {
+      return existing;
+    }
 
     await new Promise<void>((resolve, reject) => {
       const existing = document.querySelector('script[src*="OneSignalSDK"]');
@@ -93,11 +101,14 @@ export default function OnboardingPage() {
       document.head.appendChild(script);
     });
 
-    const waitForOneSignal = await new Promise<any | null>((resolve) => {
+    // OneSignal v16 uses OneSignalDeferred; ensure we resolve once ready.
+    const instance = await new Promise<any | null>((resolve) => {
       const startedAt = Date.now();
-      const tick = () => {
+      const poll = () => {
         const os = (window as any).OneSignal;
-        if (os) {
+        if (os && typeof os === "object" && typeof os.init === "function") {
+          setDebugSdkType(typeof os);
+          setDebugSdkLoaded(true);
           resolve(os);
           return;
         }
@@ -105,12 +116,23 @@ export default function OnboardingPage() {
           resolve(null);
           return;
         }
-        setTimeout(tick, 200);
+        setTimeout(poll, 200);
       };
-      tick();
+
+      (window as any).OneSignalDeferred = (window as any).OneSignalDeferred || [];
+      (window as any).OneSignalDeferred.push((os: any) => {
+        if (os && typeof os.init === "function") {
+          setDebugDeferredReady(true);
+          setDebugSdkType(typeof os);
+          setDebugSdkLoaded(true);
+          resolve(os);
+        }
+      });
+
+      poll();
     });
 
-    return waitForOneSignal;
+    return instance;
   };
 
   const enablePush = async () => {
@@ -355,6 +377,36 @@ export default function OnboardingPage() {
             {pushError ? (
               <p className="mt-2 text-xs text-[#ff6c79]">{pushError}</p>
             ) : null}
+          </div>
+        </section>
+
+        <section className="mt-4">
+          <div className="rounded-2xl border border-[#1f3364] bg-[#0b1732]/90 p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-[#7fc8ff]">OneSignal Debug</p>
+            <div className="mt-3 grid gap-2 text-xs text-[#9bb2dc] sm:grid-cols-2">
+              <div>
+                <span className="text-[#7fc8ff]">Current Site</span>
+                <div className="mt-1 break-all text-[#d6e3ff]">
+                  {typeof window === "undefined" ? "unknown (ssr)" : window.location.origin}
+                </div>
+              </div>
+              <div>
+                <span className="text-[#7fc8ff]">App ID</span>
+                <div className="mt-1 break-all text-[#d6e3ff]">{oneSignalAppId ?? "missing"}</div>
+              </div>
+              <div>
+                <span className="text-[#7fc8ff]">SDK Loaded</span>
+                <div className="mt-1 text-[#d6e3ff]">{debugSdkLoaded ? "yes" : "no"}</div>
+              </div>
+              <div>
+                <span className="text-[#7fc8ff]">SDK Type</span>
+                <div className="mt-1 text-[#d6e3ff]">{debugSdkType}</div>
+              </div>
+              <div>
+                <span className="text-[#7fc8ff]">Deferred Ready</span>
+                <div className="mt-1 text-[#d6e3ff]">{debugDeferredReady ? "yes" : "no"}</div>
+              </div>
+            </div>
           </div>
         </section>
 
