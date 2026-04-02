@@ -188,11 +188,15 @@ export default function OnboardingPage() {
         await OneSignal.registerForPushNotifications();
       }
 
-      const permission = OneSignal?.Notifications?.getPermissionStatus
-        ? await OneSignal.Notifications.getPermissionStatus()
-        : "denied";
+      const newOptIn = OneSignal?.User?.PushSubscription?.getOptInStatus
+        ? await OneSignal.User.PushSubscription.getOptInStatus()
+        : OneSignal?.isPushNotificationsEnabled
+          ? await OneSignal.isPushNotificationsEnabled()
+          : typeof Notification !== "undefined"
+            ? Notification.permission === "granted"
+            : false;
 
-      if (permission !== "granted") {
+      if (!newOptIn) {
         setPushStatus("error");
         setPushError("Push permission was denied. Please enable notifications in your browser settings.");
         return;
