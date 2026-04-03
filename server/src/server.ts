@@ -42,16 +42,20 @@ app.use("/api/family-alert-log", familyAlertLogRoutes);
 app.use("/api/alerts", alertsRoutes);
 app.use("/api/categories", symptomCategoriesRoutes);
 
+const shouldEnableDevRoutes =
+  process.env.NODE_ENV === "development" || process.env.DEV_ROUTES_ENABLED === "true";
+
+if (shouldEnableDevRoutes) {
+  import("./routes/dev.routes").then((mod) => {
+    app.use("/dev", mod.default);
+    console.log("[DEV] /dev routes enabled");
+  });
+}
+
 app.use(errorHandler);
 
 app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
-
-  if (process.env.NODE_ENV === "development") {
-    const devRouter = (await import("./routes/dev.routes")).default;
-    app.use("/dev", devRouter);
-  }
-
   await loadSymptomWeights(db);
   startJobs();
 });
