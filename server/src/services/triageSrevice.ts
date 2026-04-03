@@ -1,4 +1,6 @@
 
+import { symptoms } from "../models";
+
 interface TriageInput {
   symptomIds: string[];
   severity: number;
@@ -36,8 +38,17 @@ let weightsCache: Map<string, {weight: number; isRedFlag: boolean}> | null = nul
 
 export async function loadSymptomWeights(db: any) {
   if (weightsCache) return;
-  const symptoms = await db.query.symptoms.findMany();
-  weightsCache = new Map(symptoms.map((s: any) => [
+  const rows = await db
+    .select({
+      id: symptoms.id,
+      baseWeight: symptoms.baseWeight,
+      isRedFlag: symptoms.isRedFlag,
+      isActive: symptoms.isActive,
+    })
+    .from(symptoms);
+
+  const activeRows = rows.filter((row: any) => row.isActive !== false);
+  weightsCache = new Map(activeRows.map((s: any) => [
     s.id.toString(),
     { weight: s.baseWeight || 1, isRedFlag: s.isRedFlag || false }
   ]));
