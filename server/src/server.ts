@@ -16,6 +16,7 @@ import alertsRoutes from "./routes/alerts.routes";
 import { startJobs } from "./jobs";
 import { loadSymptomWeights } from "./services/triageSrevice";
 import { db } from "./config/db";
+import { errorHandler } from "./middleware/errorHandler";
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ app.use("/api/family-alert-log", familyAlertLogRoutes);
 app.use("/api/alerts", alertsRoutes);
 app.use("/api/categories", symptomCategoriesRoutes);
 
+app.use(errorHandler);
 
 app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
