@@ -14,6 +14,8 @@ import alertLogRoutes from "./routes/alertLog";
 import familyAlertLogRoutes from "./routes/familyAlertLog";
 import alertsRoutes from "./routes/alerts.routes";
 import { startJobs } from "./jobs";
+import { loadSymptomWeights } from "./services/triageSrevice";
+import { db } from "./config/db";
 
 dotenv.config();
 
@@ -48,5 +50,6 @@ app.listen(PORT, async () => {
     app.use("/dev", devRouter);
   }
 
+  await loadSymptomWeights(db);
   startJobs();
 });
