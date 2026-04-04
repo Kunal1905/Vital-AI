@@ -13,6 +13,7 @@ import ContactRoutes from "./routes/contacts";
 import alertLogRoutes from "./routes/alertLog";
 import familyAlertLogRoutes from "./routes/familyAlertLog";
 import alertsRoutes from "./routes/alerts.routes";
+import timelineRoutes from "./routes/timeline";
 import { startJobs } from "./jobs";
 import { loadSymptomWeights } from "./services/triageSrevice";
 import { db } from "./config/db";
@@ -40,6 +41,7 @@ app.use("/api/contacts", ContactRoutes);
 app.use("/api/alert-log", alertLogRoutes);
 app.use("/api/family-alert-log", familyAlertLogRoutes);
 app.use("/api/alerts", alertsRoutes);
+app.use("/api/timeline", timelineRoutes);
 app.use("/api/categories", symptomCategoriesRoutes);
 
 const shouldEnableDevRoutes =
