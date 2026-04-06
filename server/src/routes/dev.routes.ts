@@ -191,10 +191,11 @@ router.get('/test-suite', async (req, res) => {
     )
 
     const redFlagSlugs = ['arm_jaw_pain', 'facial_droop', 'slurred_speech', 'syncope', 'severe_allergic']
+    const redFlagParams = redFlagSlugs.map((slug) => sql`${slug}`)
     const badRedFlags = await db.execute(sql`
       SELECT COUNT(*)::int AS count
       FROM symptoms
-      WHERE slug = ANY(${redFlagSlugs}) AND is_red_flag = false
+      WHERE slug IN (${sql.join(redFlagParams, sql`,`)}) AND is_red_flag = false
     `)
     pushResult(
       'integrity_red_flags_marked',
