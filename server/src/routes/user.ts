@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { requireAuthOrTest, requireAuthTokenOrTest_DEBUG } from "../middleware/auth"
 import {
   getUser,
@@ -12,7 +12,7 @@ import {
 const router = Router();
 
 // Debug incoming headers
-router.use((req, _res, next) => {
+router.use((req: Request, _res: Response, next: NextFunction) => {
   console.log('User routes headers (RELOADED):', req.headers);
   console.log(req.headers.authorization);
   next();

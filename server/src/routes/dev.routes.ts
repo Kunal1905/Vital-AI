@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, Request, Response, NextFunction } from 'express'
 import { and, eq, gte, sql } from 'drizzle-orm'
 import { runEscalationChecker } from '../jobs/escalationChecker'
 import { runAnalyticsWorker } from '../jobs/analyticsWorker'
@@ -19,7 +19,7 @@ import { computeTriage, loadSymptomWeights } from '../services/triageSrevice'
 
 const router = Router()
 
-router.use((req, res, next) => {
+router.use((req: Request, res: Response, next: NextFunction) => {
   const secret = process.env.DEV_ROUTES_SECRET
   if (!secret) return next()
   const provided = req.header('x-dev-secret')
@@ -29,17 +29,17 @@ router.use((req, res, next) => {
   next()
 })
 
-router.post('/run-escalation', async (_req, res) => {
+router.post('/run-escalation', async (_req: Request, res: Response) => {
   const count = await runEscalationChecker()
   res.json({ alerted: count })
 })
 
-router.post('/run-analytics', async (_req, res) => {
+router.post('/run-analytics', async (_req: Request, res: Response) => {
   const count = await runAnalyticsWorker()
   res.json({ processed: count })
 })
 
-router.get('/test-suite', async (req, res) => {
+router.get('/test-suite', async (req: Request, res: Response) => {
   try {
     const results: Array<{
       name: string
