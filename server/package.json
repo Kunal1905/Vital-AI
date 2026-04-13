@@ -19,6 +19,8 @@
     "@clerk/express": "^1.7.73",
     "@neondatabase/serverless": "^1.0.2",
     "@types/express": "^5.0.6",
+    "@types/cors": "^2.8.19",
+    "@types/morgan": "^1.9.10",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "drizzle-orm": "^0.45.1",
@@ -32,8 +34,6 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/morgan": "^1.9.10",
     "@types/node": "^25.3.0",
     "@types/node-cron": "^3.0.9",
     "@types/pg": "^8.16.0",

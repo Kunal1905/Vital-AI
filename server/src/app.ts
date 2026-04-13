@@ -1,5 +1,5 @@
 import express from "express";
-import cors from "cors";
+import cors, { CorsOptions } from "cors";
 import morgan from "morgan";
 import { clerkMiddleware } from "@clerk/express";
 
@@ -31,8 +31,8 @@ const allowedOrigins = new Set(
 
 console.log("CORS allowed origins:", Array.from(allowedOrigins));
 
-const corsOptions: cors.CorsOptions = {
-  origin(origin, callback) {
+const corsOptions: CorsOptions = {
+  origin(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     // Allow non-browser clients (curl/postman) and configured frontend origins
     if (!origin || allowedOrigins.has(origin)) {
       callback(null, true);
