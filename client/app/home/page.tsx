@@ -26,7 +26,7 @@ function toState(level: string): "critical" | "warning" | "safe" {
 }
 
 export default function HomePage() {
-  const { rows, error } = useSessions({ limit: 20 });
+  const { rows, loading, error } = useSessions({ limit: 20 });
 
   const latest = rows[0];
   const latestScore = latest ? latest.riskScore ?? latest.finalRiskScore ?? 0 : 0;
@@ -78,12 +78,22 @@ export default function HomePage() {
 
           <div className={cardBase("p-7 text-center")}>
             <p className="text-xs uppercase tracking-[0.2em] text-[#809bcf]">Latest risk score</p>
-            <div className="mx-auto mt-4 h-36 w-60 rounded-t-full border-x-8 border-t-8 border-[#ff3c48]" />
-            <p className="-mt-20 text-7xl font-semibold text-[#ff3c48]">{latestScore.toFixed(1)}</p>
-            <p className="mt-2 text-sm text-[#7f97c6]">/10</p>
-            <button className="mt-3 rounded-full border border-[#8d2f3a] bg-[#3b0e16] px-4 py-1 text-sm font-semibold text-[#ff4e5a]">
-              {latestLevel}
-            </button>
+            {loading && rows.length === 0 ? (
+              <div className="mt-6 space-y-4">
+                <div className="mx-auto h-24 w-24 animate-pulse rounded-full bg-[#16284d]" />
+                <div className="mx-auto h-10 w-28 animate-pulse rounded-lg bg-[#16284d]" />
+                <div className="mx-auto h-8 w-24 animate-pulse rounded-full bg-[#16284d]" />
+              </div>
+            ) : (
+              <>
+                <div className="mx-auto mt-4 h-36 w-60 rounded-t-full border-x-8 border-t-8 border-[#ff3c48]" />
+                <p className="-mt-20 text-7xl font-semibold text-[#ff3c48]">{latestScore.toFixed(1)}</p>
+                <p className="mt-2 text-sm text-[#7f97c6]">/10</p>
+                <button className="mt-3 rounded-full border border-[#8d2f3a] bg-[#3b0e16] px-4 py-1 text-sm font-semibold text-[#ff4e5a]">
+                  {latestLevel}
+                </button>
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -110,7 +120,13 @@ export default function HomePage() {
               <h3 className="text-2xl font-semibold text-[#edf3ff] sm:text-3xl">Recent Sessions</h3>
               <Link href="/timeline" className="text-sm text-[#22b7ff]">View all →</Link>
             </div>
-            {recentSessions.length === 0 ? (
+            {loading && rows.length === 0 ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className={cardBase("h-20 animate-pulse bg-[#122347] p-4")} />
+                ))}
+              </div>
+            ) : recentSessions.length === 0 ? (
               <div className={cardBase("p-4 text-sm text-[#8aa3d8]")}>No sessions yet. Start from Log.</div>
             ) : (
               <div className="space-y-3">

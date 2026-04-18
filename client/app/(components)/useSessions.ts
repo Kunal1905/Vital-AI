@@ -33,6 +33,12 @@ const cache: CacheState = {
   hydrated: false,
 };
 
+export function primeSessionsCache(data: ApiSession[]) {
+  cache.data = data;
+  cache.fetchedAt = Date.now();
+  writeCacheToStorage();
+}
+
 function hydrateCacheFromStorage() {
   if (cache.hydrated) return;
   cache.hydrated = true;
@@ -103,6 +109,12 @@ async function loadSessions(token: string, limit: number, force: boolean, signal
       cache.promise = null;
     });
   return cache.promise;
+}
+
+export async function prefetchSessions(token: string, limit: number, signal?: AbortSignal) {
+  const data = await fetchSessionsFromApi(token, limit, signal);
+  primeSessionsCache(data);
+  return data;
 }
 
 export function useSessions(options: { limit: number; refreshIntervalMs?: number }) {

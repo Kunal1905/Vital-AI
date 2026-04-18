@@ -3,6 +3,8 @@
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useEffect, useRef } from "react";
 
+const USER_SYNC_KEY = "vital:user-sync";
+
 export default function UserSync() {
   const { isLoaded: authLoaded, isSignedIn, getToken, userId } = useAuth();
   const { user, isLoaded: userLoaded } = useUser();
@@ -12,6 +14,10 @@ export default function UserSync() {
     const syncUser = async () => {
       if (!authLoaded || !userLoaded || !isSignedIn || !userId) return;
       if (alreadySyncedRef.current === userId) return;
+      if (typeof window !== "undefined" && window.sessionStorage.getItem(USER_SYNC_KEY) === userId) {
+        alreadySyncedRef.current = userId;
+        return;
+      }
 
       const email = user?.primaryEmailAddress?.emailAddress;
       if (!email) return;
@@ -33,6 +39,9 @@ export default function UserSync() {
 
         if (response.ok) {
           alreadySyncedRef.current = userId;
+          if (typeof window !== "undefined") {
+            window.sessionStorage.setItem(USER_SYNC_KEY, userId);
+          }
         }
       } catch (error) {
         console.error('Failed to sync user:', error);

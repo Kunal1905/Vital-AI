@@ -3,6 +3,9 @@
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { prefetchSessions } from "../(components)/useSessions";
+
+const USER_SYNC_KEY = "vital:user-sync";
 
 export default function PostAuthPage() {
   const router = useRouter();
@@ -29,34 +32,37 @@ export default function PostAuthPage() {
 
         const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
         const email = user?.primaryEmailAddress?.emailAddress;
-
-        if (email) {
-          await fetch(`${apiBase}/api/users/submitUser`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ email }),
-          });
+        if (!email) {
+          throw new Error("Missing email address.");
         }
 
-        const response = await fetch(`${apiBase}/api/users/getUser`, {
-          method: "GET",
+        const submitResponse = await fetch(`${apiBase}/api/users/submitUser`, {
+          method: "POST",
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify({ email }),
         });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch user profile");
+        const payload = await submitResponse.json().catch(() => ({}));
+        if (!submitResponse.ok) {
+          throw new Error(payload?.error || "Failed to sync user");
         }
 
-        const payload = await response.json();
         const onboardingCompleted = Boolean(payload?.user?.onboardingCompleted);
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(USER_SYNC_KEY, userId);
+        }
+
+        const destination = onboardingCompleted ? "/home" : "/onboarding";
+        router.prefetch(destination);
+
+        if (onboardingCompleted) {
+          await prefetchSessions(token, 20);
+        }
 
         handledRef.current = userId;
-        router.replace(onboardingCompleted ? "/home" : "/onboarding");
+        router.replace(destination);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to resolve login flow");
       }
