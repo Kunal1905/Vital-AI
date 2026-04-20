@@ -2,9 +2,29 @@ import { db } from '../config/db'
 import { sendEscalationAlert } from '../services/notificationService'
 import { sql } from 'drizzle-orm'
 
+type EscalationAlertType = 'escalation_day7' | 'escalation_day10' | 'escalation_day14'
+
+function pickNextEscalationAlert(
+  daysSince: number,
+  sentAlertTypes: Set<string>,
+): EscalationAlertType | null {
+  if (daysSince >= 14 && !sentAlertTypes.has('escalation_day14')) {
+    return 'escalation_day14'
+  }
+
+  if (daysSince >= 10 && !sentAlertTypes.has('escalation_day10')) {
+    return 'escalation_day10'
+  }
+
+  if (daysSince >= 7 && !sentAlertTypes.has('escalation_day7')) {
+    return 'escalation_day7'
+  }
+
+  return null
+}
+
 export async function runEscalationChecker(): Promise<number> {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
 
   const candidates = await db.execute(sql`
     SELECT
@@ -29,12 +49,6 @@ export async function runEscalationChecker(): Promise<number> {
     FROM sessions s
     GROUP BY s.user_id
     HAVING MAX(s.created_at) < ${sevenDaysAgo}
-      AND s.user_id NOT IN (
-        SELECT DISTINCT user_id
-        FROM alert_log
-        WHERE created_at > ${threeDaysAgo}
-          AND alert_type LIKE 'escalation_%'
-      )
     LIMIT 200
   `)
 
@@ -50,10 +64,23 @@ export async function runEscalationChecker(): Promise<number> {
         (Date.now() - new Date(row.last_log_date).getTime()) / (1000 * 60 * 60 * 24)
       )
 
-      const alertType =
-        daysSince <= 8 ? 'escalation_day7'
-        : daysSince <= 11 ? 'escalation_day10'
-        : 'escalation_day14'
+      const sentAlertsResult = await db.execute(sql`
+        SELECT alert_type
+        FROM alert_log
+        WHERE user_id = ${row.user_id}
+          AND alert_type LIKE 'escalation_%'
+      `)
+
+      const sentAlertTypes = new Set(
+        (sentAlertsResult.rows as Array<{ alert_type: string | null }>)
+          .map((alert) => alert.alert_type)
+          .filter((alertType): alertType is string => Boolean(alertType))
+      )
+
+      const alertType = pickNextEscalationAlert(daysSince, sentAlertTypes)
+      if (!alertType) {
+        continue
+      }
 
       await sendEscalationAlert(
         row.user_id,
