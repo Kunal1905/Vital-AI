@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   integer,
   json,
   pgTable,
@@ -31,4 +32,10 @@ export const sessions = pgTable("sessions", {
   finalRiskScore: real("final_risk_score").default(0).notNull(),
   finalRiskLevel: text("final_risk_level").default("low").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+},
+  (table) => ({
+    userCreatedIdx: index(
+      "sessions_user_created_idx"
+    ).on(table.userId, table.createdAt),
+  })
+);

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuthOrTest } from "../middleware/auth";
+import { requireAuth } from "../middleware/auth";
 import {
   getTimeline,
   getTimelineStats,
@@ -8,8 +8,8 @@ import {
 
 const router = Router();
 
-router.get("/", requireAuthOrTest, getTimeline);
-router.get("/stats", requireAuthOrTest, getTimelineStats);
-router.get("/frequency", requireAuthOrTest, getSymptomFrequency);
+router.get("/", requireAuth, getTimeline);
+router.get("/stats", requireAuth, getTimelineStats);
+router.get("/frequency", requireAuth, getSymptomFrequency);
 
 export default router;

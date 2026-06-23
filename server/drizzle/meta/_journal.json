@@ -50,6 +50,13 @@
       "when": 1772605459609,
       "tag": "0006_session_vitals_risk_schema_update",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781849776890,
+      "tag": "0007_common_ken_ellis",
+      "breakpoints": true
     }
   ]
 }

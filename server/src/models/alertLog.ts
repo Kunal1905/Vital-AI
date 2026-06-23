@@ -1,4 +1,4 @@
-import { integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { index, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { sessions } from "./session";
 import { users } from "./user";
 
@@ -14,4 +14,10 @@ export const alertLog = pgTable("alert_log", {
   status: text("status").default("sent").notNull(),
   message: text("message").default("").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+},
+  (table) => ({
+    userTypeCreatedIdx: index(
+    "alert_log_user_type_created_idx"
+    ).on(table.userId, table.alertType, table.createdAt)
+  })
+);

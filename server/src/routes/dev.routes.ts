@@ -15,6 +15,7 @@ import {
 } from '../models'
 import { detectSymptomsFromText } from '../services/nlpService'
 import { selectExercises } from '../services/exerciseService'
+import { getAlertableContacts, sendEscalationAlert, triggerFamilyAlert } from '../services/notificationService'
 import { computeTriage, loadSymptomWeights } from '../services/triageSrevice'
 
 const router = Router()
@@ -39,6 +40,117 @@ router.post('/run-analytics', async (_req: Request, res: Response) => {
   res.json({ processed: count })
 })
 
+async function resolveUserId(req: Request): Promise<number | null> {
+  const clerkId = req.header('x-test-user-id')
+  const rawUserId = req.query.userId ? Number(req.query.userId) : null
+
+  if (Number.isFinite(rawUserId)) {
+    return rawUserId as number
+  }
+
+  if (!clerkId) return null
+
+  const [user] = await db.select().from(users).where(eq(users.clerkUserId, clerkId))
+  return user?.id ?? null
+}
+
+router.post('/test-early-warning', async (req: Request, res: Response) => {
+  try {
+    const userId = await resolveUserId(req)
+    if (!userId) {
+      return res.status(400).json({
+        error: 'Provide a valid user via x-test-user-id (Clerk ID) or ?userId=',
+      })
+    }
+
+    const alertType = req.body?.alertType ?? 'recurring_episode_warning'
+    const daysSinceLastLog = Number(req.body?.daysSinceLastLog ?? 0)
+    const lastRiskScore = req.body?.lastRiskScore !== undefined
+      ? Number(req.body.lastRiskScore)
+      : undefined
+
+    await sendEscalationAlert(userId, alertType, daysSinceLastLog, lastRiskScore)
+
+    return res.json({
+      success: true,
+      userId,
+      alertType,
+      daysSinceLastLog,
+      lastRiskScore: lastRiskScore ?? null,
+    })
+  } catch (error: any) {
+    console.error('[DEV TEST EARLY WARNING] failed:', error)
+    return res.status(500).json({
+      error: 'Failed to create early warning alert',
+      message: error?.message ?? 'Unknown error',
+    })
+  }
+})
+
+router.post('/test-family-alert', async (req: Request, res: Response) => {
+  try {
+    const userId = await resolveUserId(req)
+    if (!userId) {
+      return res.status(400).json({
+        error: 'Provide a valid user via x-test-user-id (Clerk ID) or ?userId=',
+      })
+    }
+
+    const triageLevel = typeof req.body?.triageLevel === 'string' ? req.body.triageLevel : 'high'
+    const redFlagsDetected = Array.isArray(req.body?.redFlagsDetected)
+      ? req.body.redFlagsDetected.filter((value: unknown): value is string => typeof value === 'string')
+      : []
+    const sessionId = req.body?.sessionId === null || req.body?.sessionId === undefined
+      ? null
+      : Number(req.body.sessionId)
+    const riskScore = req.body?.riskScore === undefined ? 8.2 : Number(req.body.riskScore)
+    const primarySymptom = typeof req.body?.primarySymptom === 'string'
+      ? req.body.primarySymptom
+      : 'chest tightness'
+
+    const triggerType =
+      redFlagsDetected.length > 0 || triageLevel === 'emergency'
+        ? 'red_flag'
+        : triageLevel === 'high'
+          ? 'high_risk'
+          : 'manual'
+
+    const contacts = await getAlertableContacts(userId, triggerType)
+    if (contacts.length === 0) {
+      return res.status(404).json({ error: 'No alertable emergency contacts found for this user' })
+    }
+
+    await Promise.all(
+      contacts.map((contact) =>
+        triggerFamilyAlert(
+          contact,
+          triageLevel,
+          redFlagsDetected,
+          Number.isFinite(sessionId) ? sessionId : null,
+          Number.isFinite(riskScore) ? riskScore : undefined,
+          primarySymptom,
+        ),
+      ),
+    )
+
+    return res.json({
+      success: true,
+      userId,
+      contactsAlerted: contacts.length,
+      triageLevel,
+      redFlagsDetected,
+      riskScore,
+      primarySymptom,
+    })
+  } catch (error: any) {
+    console.error('[DEV TEST FAMILY ALERT] failed:', error)
+    return res.status(500).json({
+      error: 'Failed to trigger family alert',
+      message: error?.message ?? 'Unknown error',
+    })
+  }
+})
+
 router.get('/test-suite', async (req: Request, res: Response) => {
   try {
     const results: Array<{
@@ -47,16 +159,7 @@ router.get('/test-suite', async (req: Request, res: Response) => {
       details?: string
     }> = []
 
-    const clerkId = req.header('x-test-user-id')
-    const rawUserId = req.query.userId ? Number(req.query.userId) : null
-
-    let userId: number | null = null
-    if (Number.isFinite(rawUserId)) {
-      userId = rawUserId as number
-    } else if (clerkId) {
-      const [user] = await db.select().from(users).where(eq(users.clerkUserId, clerkId))
-      userId = user?.id ?? null
-    }
+    const userId = await resolveUserId(req)
 
     if (!userId) {
       return res.status(400).json({

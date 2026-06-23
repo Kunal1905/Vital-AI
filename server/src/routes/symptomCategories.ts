@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { requireAuthOrTest } from "../middleware/auth";
+import { requireAuth } from "../middleware/auth";
 import { getCategories } from "../controllers/symptomCategoriesController";
 
 const router = Router();
 
-router.get("/", requireAuthOrTest, getCategories);
+router.get("/", requireAuth, getCategories);
 
 export default router;

@@ -1,4 +1,4 @@
-import { integer, json, pgTable, real, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { index, integer, json, pgTable, real, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { sessions } from "./session";
 
 export const riskAssessments = pgTable("risk_assessments", {
@@ -13,4 +13,10 @@ export const riskAssessments = pgTable("risk_assessments", {
   contributingFactors: json("contributing_factors").$type<Record<string, number>>(),
   modelVersion: text("model_version").default("v1").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+},
+  (table) => ({
+    sessionIdx: index(
+      "risk_assessments_session_idx"
+    ).on(table.sessionId),
+  })
+);

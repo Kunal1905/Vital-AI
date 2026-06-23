@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import Sentry from "@sentry/node";
 
 export function errorHandler(
   err: any,
@@ -15,6 +16,10 @@ export function errorHandler(
     method: req.method,
     stack: process.env.NODE_ENV === "production" ? undefined : err?.stack,
   });
+
+  if(status >= 500) {
+    Sentry.captureException(err);
+  }
 
   res.status(status).json({
     error: err?.message || "Internal Server Error",

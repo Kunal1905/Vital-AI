@@ -1,9 +1,9 @@
-import { Router, Request, Response } from "express";
+import { Router } from "express";
+import { requireAuth } from "../middleware/auth";
+import { getFamilyAlertLogEntries } from "../controllers/logController";
 
 const router = Router();
 
-router.get("/", (_req: Request, res: Response) => {
-  res.json({ ok: true, route: "family-alert-log", message: "Route wired. Implement worker handlers next." });
-});
+router.get("/", requireAuth, getFamilyAlertLogEntries);
 
 export default router;

@@ -5,8 +5,7 @@ import { riskAssessments, riskHistory, sessionSymptoms, sessions, symptoms, user
 
 function getAuthUserId(req: Request): string | undefined {
   const authUserId = (req as any).auth?.userId as string | undefined;
-  const testUserId = req.headers["x-test-user-id"] as string | undefined;
-  return authUserId ?? testUserId;
+  return authUserId;
 }
 
 async function getDbUser(req: Request) {

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuthOrTest, requireAuthTokenOrTest_DEBUG } from "../middleware/auth";
+import { requireAuth } from "../middleware/auth";
 import {
   createSession,
   getBreathingExerciseBySession,
@@ -13,13 +13,13 @@ import {
 
 const router = Router();
 
-router.post("/", requireAuthTokenOrTest_DEBUG, createSession);
-router.get("/", requireAuthOrTest, getSessions);
-router.get("/:id", requireAuthOrTest, getSessionById);
-router.post("/sync", requireAuthTokenOrTest_DEBUG, syncSessions);
-router.get("/:id/calming", requireAuthOrTest, getCalmingSessionsBySession);
-router.get("/:id/breathing", requireAuthOrTest, getBreathingExerciseBySession);
-router.patch("/:id/action", requireAuthTokenOrTest_DEBUG, updateSessionAction);
-router.patch("/:id/calming", requireAuthTokenOrTest_DEBUG, updateCalmingSession);
+router.post("/", requireAuth, createSession);
+router.get("/", requireAuth, getSessions);
+router.get("/:id", requireAuth, getSessionById);
+router.post("/sync", requireAuth, syncSessions);
+router.get("/:id/calming", requireAuth, getCalmingSessionsBySession);
+router.get("/:id/breathing", requireAuth, getBreathingExerciseBySession);
+router.patch("/:id/action", requireAuth, updateSessionAction);
+router.patch("/:id/calming", requireAuth, updateCalmingSession);
 
 export default router;

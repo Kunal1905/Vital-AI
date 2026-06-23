@@ -1,64 +1,65 @@
 import { db } from '../config/db'
-import { sessions, riskAssessments, alertLog } from '../models'
-import { and, desc, eq, gte } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
+import { alertLog } from '../models'
+import { and, eq, gte } from 'drizzle-orm'
 import { sendEscalationAlert } from '../services/notificationService'
 
+type TrendRow = {
+  user_id: number
+  last7_avg: string | null
+  prev7_avg: string | null
+  last7_count: number
+  last7_first_score: number | null
+}
+
 export async function runAnalyticsWorker(): Promise<number> {
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-  const activeUsers = await db
-    .selectDistinct({ userId: sessions.userId })
-    .from(sessions)
-    .where(gte(sessions.createdAt, thirtyDaysAgo))
+  // One query for every active user instead of two queries per user in a loop.
+  const result = await db.execute<TrendRow>(sql`
+    with recent as (
+      select
+        s.user_id,
+        ra.risk_score,
+        s.created_at,
+        case when s.created_at > now() - interval '7 days' then 'last7' else 'prev7' end as bucket
+      from sessions s
+      join risk_assessments ra on ra.session_id = s.id
+      where s.created_at > now() - interval '14 days'
+    )
+    select
+      user_id,
+      avg(risk_score) filter (where bucket = 'last7') as last7_avg,
+      avg(risk_score) filter (where bucket = 'prev7') as prev7_avg,
+      count(*) filter (where bucket = 'last7')::int as last7_count,
+      (array_agg(risk_score order by created_at desc) filter (where bucket = 'last7'))[1] as last7_first_score
+    from recent
+    group by user_id
+  `)
 
   let processedCount = 0
 
-  for (const { userId } of activeUsers) {
+  for (const row of result.rows as unknown as TrendRow[]) {
     try {
-      await computeTrendSignals(userId)
-      processedCount++
+      const handled = await maybeSendTrendAlert(row)
+      if (handled) processedCount++
     } catch (err) {
-      console.error(`[ANALYTICS] Failed for user ${userId}:`, err)
+      console.error(`[ANALYTICS] Failed for user ${row.user_id}:`, err)
     }
   }
 
   return processedCount
 }
 
-async function computeTrendSignals(userId: number): Promise<void> {
-  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+async function maybeSendTrendAlert(row: TrendRow): Promise<boolean> {
+  const { user_id: userId, last7_avg, prev7_avg, last7_count, last7_first_score } = row
 
-  const rows = await db
-    .select({
-      createdAt: sessions.createdAt,
-      riskScore: riskAssessments.riskScore,
-    })
-    .from(sessions)
-    .leftJoin(riskAssessments, eq(riskAssessments.sessionId, sessions.id))
-    .where(and(eq(sessions.userId, userId), gte(sessions.createdAt, fourteenDaysAgo)))
-    .orderBy(desc(sessions.createdAt))
+  if (last7_avg === null || prev7_avg === null || last7_count === 0) return false
 
-  const recent = rows
-    .filter((row) => row.riskScore !== null)
-    .map((row) => ({ ...row, riskScore: Number(row.riskScore) }))
-
-  if (recent.length < 4) return
-
-  const last7 = recent.filter((row) => new Date(row.createdAt) > sevenDaysAgo)
-  const prev7 = recent.filter((row) => {
-    const created = new Date(row.createdAt)
-    return created <= sevenDaysAgo && created >= fourteenDaysAgo
-  })
-
-  if (last7.length === 0 || prev7.length === 0) return
-
-  const last7Avg = last7.reduce((sum, row) => sum + row.riskScore, 0) / last7.length
-  const prev7Avg = prev7.reduce((sum, row) => sum + row.riskScore, 0) / prev7.length
-
-  if (prev7Avg === 0) return
+  const last7Avg = Number(last7_avg)
+  const prev7Avg = Number(prev7_avg)
+  if (prev7Avg === 0) return false
 
   const changePct = ((last7Avg - prev7Avg) / prev7Avg) * 100
-  if (changePct < 20) return
+  if (changePct < 20) return false
 
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
   const recentAlert = await db
@@ -73,7 +74,8 @@ async function computeTrendSignals(userId: number): Promise<void> {
     )
     .limit(1)
 
-  if (recentAlert.length > 0) return
+  if (recentAlert.length > 0) return false
 
-  await sendEscalationAlert(userId, 'trend_spike', 0, last7[0]?.riskScore)
+  await sendEscalationAlert(userId, 'trend_spike', 0, last7_first_score ?? undefined)
+  return true
 }

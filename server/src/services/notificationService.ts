@@ -13,6 +13,7 @@ type AlertType =
   | 'escalation_day14'
   | 'trend_spike'
   | 'new_peak'
+  | 'recurring_episode_warning'
 
 interface EmergencyContactRow {
   id: number
@@ -270,6 +271,8 @@ export async function sendEscalationAlert(
       `Vital: Your risk trend rose significantly over the past week. No action needed right now, but worth keeping an eye on. Log your current symptoms to update your trend.`,
     new_peak:
       `Vital: You reached a new personal high in your risk score. If you're feeling better now, log it — it helps your trend data. If not, consider speaking to a doctor.`,
+    recurring_episode_warning:
+      `Vital: We noticed several moderate or high-risk symptom episodes close together. This may be a sign that your symptoms are recurring more often. Consider checking in again today and making a care plan.`,
   }
 
   const messageText = messages[alertType]
@@ -279,7 +282,10 @@ export async function sendEscalationAlert(
   await db.insert(alertLog).values({
     userId,
     alertType,
-    severity: alertType.startsWith('escalation') ? 'warning' : 'info',
+    severity:
+      alertType.startsWith('escalation') || alertType === 'recurring_episode_warning'
+        ? 'warning'
+        : 'info',
     channel: 'in_app',
     status: 'sent',
     message: `${messageText} (daysSinceLastLog=${daysSinceLastLog}${lastRiskScore !== undefined ? `, lastRiskScore=${lastRiskScore}` : ''})`,

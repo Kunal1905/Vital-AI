@@ -2,6 +2,21 @@ import express from "express";
 import cors, { CorsOptions } from "cors";
 import morgan from "morgan";
 import { clerkMiddleware } from "@clerk/express";
+import helmet from "helmet";
+import compression from "compression";
+import rateLimit from "express-rate-limit";
+import { RedisStore } from "rate-limit-redis"
+import * as Sentry from "@sentry/node";
+import { redis } from "./lib/cache";
+import Redis from "ioredis";
+
+if(process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "development",
+    tracesSampleRate: 0.2,
+  })
+}
 
 const app = express();
 
@@ -47,9 +62,33 @@ const corsOptions: CorsOptions = {
 
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
+app.use(helmet());
+app.use(compression());
 app.use(express.json());
 app.use(morgan("dev"));
 app.use(clerkMiddleware());
+
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: new RedisStore({
+    sendCommand: (...args: string[]) => (redis.call as any)(...args),
+  }),
+});
+app.use("/api",generalLimiter);
+
+const alertLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, //1hour
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: new RedisStore({
+    sendCommand: (...args: string[]) => (redis.call as any)(...args),
+  }),
+});
+app.use("/api/contacts/alert", alertLimiter);
 
 app.get("/", (_req, res) => {
   res.json({

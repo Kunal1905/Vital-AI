@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuthOrTest, requireAuthTokenOrTest_DEBUG } from "../middleware/auth";
+import { requireAuth } from "../middleware/auth";
 import {
   createSymptom,
   deleteSymptom,
@@ -9,9 +9,9 @@ import {
 
 const router = Router();
 
-router.get("/", requireAuthOrTest, getSymptoms);
-router.post("/", requireAuthTokenOrTest_DEBUG, createSymptom);
-router.patch("/:id", requireAuthTokenOrTest_DEBUG, updateSymptom);
-router.delete("/:id", requireAuthTokenOrTest_DEBUG, deleteSymptom);
+router.get("/", requireAuth, getSymptoms);
+router.post("/", requireAuth, createSymptom);
+router.patch("/:id", requireAuth, updateSymptom);
+router.delete("/:id", requireAuth, deleteSymptom);
 
 export default router;

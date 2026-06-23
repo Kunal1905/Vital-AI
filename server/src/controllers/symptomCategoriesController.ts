@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../config/db";
 import { users } from "../models/user";
 import { symptomCategories } from "../models";
+import { cached } from "../lib/cache";
 
 export const getCategories = async (req: Request, res: Response) => {
   try {
@@ -23,9 +24,9 @@ export const getCategories = async (req: Request, res: Response) => {
       });
     }
 
-    const categories = await db
-      .select()
-      .from(symptomCategories);
+    const categories = await cached("sympton-categories", 3600, () => 
+      db.select().from(symptomCategories)
+  );
 
     return res.status(200).json({
       success: true,
