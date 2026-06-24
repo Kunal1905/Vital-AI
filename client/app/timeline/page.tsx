@@ -4,6 +4,7 @@ import { SignedIn, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useSessions } from "../(components)/useSessions";
+import Disclaimer from "../(components)/Disclaimer";
 
 type TimelineView = "trend" | "heatmap" | "symptoms";
 
@@ -236,6 +237,7 @@ export default function TimelinePage() {
               sessions.map((session) => <SessionRow key={`${session.id}-${session.timeAgo}`} session={session} />)
             )}
           </div>
+          <Disclaimer />
         </section>
       </div>
 

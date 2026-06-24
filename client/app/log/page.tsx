@@ -4,6 +4,7 @@ import { SignedIn, UserButton, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import Disclaimer from "../(components)/Disclaimer";
 
 type Step = 0 | 1 | 2;
 type Category = string;
@@ -557,6 +558,7 @@ export default function LogPage() {
               {step === 2 ? (isSubmitting ? "Saving..." : "Analyze Symptoms →") : "Continue →"}
             </button>
           </div>
+          <Disclaimer />
         </section>
       </div>
 

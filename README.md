@@ -134,6 +134,7 @@ Examples:
 - Push alerts require the emergency contact to opt in and provide a OneSignal subscription id.
 - If OneSignal credentials are missing in development, alerts are logged to the console.
 - Trend graph is computed on the client using existing session timestamps.
+- Alert testing and launch steps are documented in [ALERTS_TESTING_AND_LAUNCH.md](/Users/kunalsuthar/Documents/web-development/Vital AI/ALERTS_TESTING_AND_LAUNCH.md).
 
 ## Next Improvements (Optional)
 

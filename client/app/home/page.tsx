@@ -4,6 +4,7 @@ import { SignedIn, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { useMemo } from "react";
 import { useSessions } from "../(components)/useSessions";
+import Disclaimer from "../(components)/Disclaimer";
 
 function cardBase(extra = "") {
   return `rounded-2xl border border-[#233f75] bg-[#0f1d3a] ${extra}`;
@@ -134,6 +135,8 @@ export default function HomePage() {
               </div>
             )}
           </div>
+
+          <Disclaimer />
         </section>
       </div>
 

@@ -3,6 +3,7 @@
 import { SignedIn, UserButton, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import Disclaimer from "../(components)/Disclaimer";
 
 function cardBase(extra = "") {
   return `rounded-2xl border border-[#233f75] bg-[#0f1d3a] ${extra}`;
@@ -207,6 +208,7 @@ export default function ProfilePage() {
             <textarea className="min-h-20 w-full rounded-xl border border-[#2a4379] bg-[#1a2950] px-4 py-3 text-lg" value={form.medications} onChange={(e) => setForm((p) => ({ ...p, medications: e.target.value }))} placeholder="Medications" />
             <textarea className="min-h-20 w-full rounded-xl border border-[#2a4379] bg-[#1a2950] px-4 py-3 text-lg" value={form.allergies} onChange={(e) => setForm((p) => ({ ...p, allergies: e.target.value }))} placeholder="Allergies" />
           </div>
+          <Disclaimer />
         </section>
       </div>
 

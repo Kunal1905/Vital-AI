@@ -4,6 +4,7 @@ import { SignedIn, UserButton, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import Disclaimer from "../(components)/Disclaimer";
 
 type SessionPayload = {
   session: {
@@ -576,6 +577,7 @@ function ResultsContent() {
               ← Back to dashboard
             </Link>
           </div>
+          <Disclaimer />
         </section>
       </div>
 
