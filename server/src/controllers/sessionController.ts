@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../config/db";
 import {
@@ -19,6 +19,7 @@ import { selectBreathingExercise } from "../services/breathingService";
 import { detectSymptomsFromText } from "../services/nlpService";
 import { getAlertableContacts, triggerFamilyAlert } from "../services/notificationService";
 import { computeTriage, loadSymptomWeights } from "../services/triageSrevice";
+import { cached, bumpVersion, getVersion } from "../lib/cache";
 
 const createSessionSchema = z.object({
   symptomIds: z.array(z.union([z.string(), z.number()])).default([]),
@@ -78,6 +79,10 @@ const updateCalmingSchema = z.object({
   completed: z.boolean(),
   skipped: z.boolean().optional(),
   durationSeconds: z.number().int().positive().optional(),
+  // Optional 1-5 self-reported "did this help?" rating. Optional on purpose —
+  // never block the completion flow on a survey, especially right after a
+  // panic event. The client can prompt for it, but a skip must be a no-op.
+  effectivenessRating: z.number().int().min(1).max(5).optional(),
 });
 
 function getAuthUserId(req: Request): string | undefined {
@@ -583,7 +588,8 @@ export async function updateCalmingSession(req: Request, res: Response, next: Ne
     const user = await getDbUser(req);
     if (!user) return res.status(401).json({ error: "Authentication required" });
 
-    const { moduleUsed, completed, skipped, durationSeconds } = updateCalmingSchema.parse(req.body);
+    const { moduleUsed, completed, skipped, durationSeconds, effectivenessRating } =
+      updateCalmingSchema.parse(req.body);
     const sessionId = parseIdParam(req.params.id);
     if (!Number.isFinite(sessionId)) {
       return res.status(400).json({ error: "Invalid session id" });
@@ -611,17 +617,26 @@ export async function updateCalmingSession(req: Request, res: Response, next: Ne
 
     const status = completed ? "completed" : skipped ? "skipped" : "in_progress";
     const completionScore = completed ? 1 : skipped ? 0 : existing.completionScore;
+    // A rating only makes sense for an exercise the person actually finished —
+    // a skipped exercise has nothing to rate. Ignore rating on skip rather
+    // than erroring, since the client may send a stale value.
+    const newRating = completed && !skipped ? effectivenessRating ?? existing.effectivenessRating : existing.effectivenessRating;
 
     await db
       .update(calmingSessions)
       .set({
         durationMinutes,
         completionScore,
+        effectivenessRating: newRating,
         status,
       })
       .where(eq(calmingSessions.id, existing.id));
 
-    return res.json({ success: true, completionScore, status });
+    if (newRating !== existing.effectivenessRating) {
+      await bumpVersion(`calming-recommendation:${user.id}`);
+    }
+
+    return res.json({ success: true, completionScore, effectivenessRating: newRating, status });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: "Validation failed", details: error.issues });
@@ -657,6 +672,86 @@ export async function getCalmingSessionsBySession(req: Request, res: Response, n
   } catch (error) {
     return next(error);
   }
+}
+
+export async function getCalmingRecommendation(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = await getDbUser(req);
+    if (!user) return res.status(401).json({ error: "Authentication required" });
+
+    const MIN_RATINGS_REQUIRED = 3; // don't trust an exercise's average until it has a few data points
+
+    const version = await getVersion(`calming-recommendation:${user.id}`);
+    const result = await cached(
+      `calming-recommendation:v${version}:${user.id}`,
+      6 * 60 * 60, // 6 hours — feedback is infrequent enough that this is safe
+      async () => {
+        const stats = await db
+          .select({
+            exerciseType: calmingSessions.exerciseType,
+            avgRating: sql<number>`avg(${calmingSessions.effectivenessRating})`,
+            ratingCount: sql<number>`count(${calmingSessions.effectivenessRating})`,
+          })
+          .from(calmingSessions)
+          .where(
+            and(
+              eq(calmingSessions.userId, user.id),
+              sql`${calmingSessions.effectivenessRating} is not null`,
+            ),
+          )
+          .groupBy(calmingSessions.exerciseType);
+
+        const eligible = stats
+          .map((row) => ({
+            exerciseType: row.exerciseType,
+            avgRating: Number(row.avgRating),
+            ratingCount: Number(row.ratingCount),
+          }))
+          .filter((row) => row.ratingCount >= MIN_RATINGS_REQUIRED)
+          .sort((a, b) => b.avgRating - a.avgRating);
+
+        if (eligible.length === 0) {
+          const ratedSoFar = stats.reduce((sum, r) => sum + Number(r.ratingCount), 0);
+          return {
+            personalized: false,
+            recommendation: null,
+            message:
+              ratedSoFar === 0
+                ? "Rate a few exercises after you try them and we'll start showing you what actually works for you."
+                : `A few more ratings and we'll have enough to recommend what's worked best for you (${ratedSoFar}/${MIN_RATINGS_REQUIRED} so far on your most-tried exercise).`,
+          };
+        }
+
+        const best = eligible[0];
+        const runnerUp = eligible[1];
+
+        return {
+          personalized: true,
+          recommendation: {
+            exerciseType: best.exerciseType,
+            avgRating: Math.round(best.avgRating * 10) / 10,
+            basedOnRatings: best.ratingCount,
+          },
+          comparedTo: runnerUp
+            ? { exerciseType: runnerUp.exerciseType, avgRating: Math.round(runnerUp.avgRating * 10) / 10 }
+            : null,
+          message: runnerUp
+            ? `${formatExerciseName(best.exerciseType)} has helped you more than ${formatExerciseName(runnerUp.exerciseType)} in your last ${best.ratingCount} ratings — want to start there next time?`
+            : `${formatExerciseName(best.exerciseType)} has consistently helped in your last ${best.ratingCount} ratings — want to start there next time?`,
+        };
+      },
+    );
+
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+function formatExerciseName(exerciseType: string): string {
+  return exerciseType
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export async function getBreathingExerciseBySession(req: Request, res: Response, next: NextFunction) {
