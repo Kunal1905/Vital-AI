@@ -4,6 +4,7 @@ import { SignedIn, UserButton, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Disclaimer from "../(components)/Disclaimer";
+import CrisisButton from "../(components)/CrisisButton";
 
 function cardBase(extra = "") {
   return `rounded-2xl border border-[#233f75] bg-[#0f1d3a] ${extra}`;
@@ -125,6 +126,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-[#020b22] text-[#d6e3ff]">
       <div className="mx-auto w-full max-w-3xl px-4 pb-28 pt-10 sm:px-6">
         <section className="space-y-5">
+          <CrisisButton />
           <header className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="text-2xl text-[#8ba1cb]">←</span>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useSessions } from "../(components)/useSessions";
 import Disclaimer from "../(components)/Disclaimer";
+import CrisisButton from "../(components)/CrisisButton";
 
 type TimelineView = "trend" | "heatmap" | "symptoms";
 
@@ -94,6 +95,7 @@ export default function TimelinePage() {
     <div className="min-h-screen bg-[#020b22] text-[#d6e3ff]">
       <div className="mx-auto w-full max-w-3xl px-4 pb-28 pt-10 sm:px-6">
         <section className="space-y-5">
+          <CrisisButton />
           <header className="flex items-center gap-3">
             <span className="text-2xl text-[#8ba1cb]">←</span>
             <h2 className="text-5xl font-semibold text-[#f2f6ff]">Health Timeline</h2>

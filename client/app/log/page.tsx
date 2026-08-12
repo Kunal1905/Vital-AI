@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import Disclaimer from "../(components)/Disclaimer";
+import CrisisButton from "../(components)/CrisisButton";
 
 type Step = 0 | 1 | 2;
 type Category = string;
@@ -304,6 +305,7 @@ export default function LogPage() {
     <div className="min-h-screen bg-[#020b22] text-[#d6e3ff]">
       <div className="mx-auto w-full max-w-3xl px-4 pb-28 pt-10 sm:px-6">
         <section className="space-y-6">
+          <CrisisButton />
           <div className="grid grid-cols-4 gap-2 pt-4">
             {[0, 1, 2, 3].map((bar) => (
               <div

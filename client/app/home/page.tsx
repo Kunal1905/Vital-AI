@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useSessions } from "../(components)/useSessions";
 import Disclaimer from "../(components)/Disclaimer";
+import CrisisButton from "../(components)/CrisisButton";
 
 function cardBase(extra = "") {
   return `rounded-2xl border border-[#233f75] bg-[#0f1d3a] ${extra}`;
@@ -72,6 +73,8 @@ export default function HomePage() {
               {rows.length}
             </div>
           </header>
+
+          <CrisisButton />
 
           {error ? (
             <div className="rounded-xl border border-[#8e3b4e] bg-[#2a1620] p-3 text-sm text-[#ffc3cf]">{error}</div>

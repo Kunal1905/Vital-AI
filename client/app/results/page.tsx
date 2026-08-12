@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Disclaimer from "../(components)/Disclaimer";
+import CrisisButton from "../(components)/CrisisButton";
 
 type SessionPayload = {
   session: {
@@ -390,6 +391,7 @@ function ResultsContent() {
     <div className="min-h-screen bg-[#020b22] text-[#d6e3ff]">
       <div className="mx-auto w-full max-w-3xl px-4 pb-28 pt-10 sm:px-6">
         <section className="space-y-6">
+          <CrisisButton />
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.24em] text-[#7f96c8]">Score Summary</p>

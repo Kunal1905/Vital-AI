@@ -73,7 +73,7 @@ export default function LandingPage() {
 
   return (
     <SmoothScroll>
-      <main className="vital-noir">
+      <main className="vital-noir relative isolate overflow-x-hidden">
         <style jsx global>{`
           @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400;1,600&family=Syne:wght@600;700;800&family=IBM+Plex+Serif:wght@300;400&family=Martian+Mono:wght@400;500&display=swap");
 
@@ -197,7 +197,7 @@ export default function LandingPage() {
 
         <FloatingNav />
 
-        <section className="relative flex min-h-screen items-center justify-center overflow-hidden pt-0">
+        <section className="relative flex min-h-[100svh] items-center justify-center overflow-hidden pt-[60px]">
           <AuroraBackdrop />
           <Spotlight />
           <NoiseOverlay />
@@ -372,7 +372,7 @@ function SmoothScroll({ children }: { children: React.ReactNode }) {
 
 function FloatingNav() {
   return (
-    <nav className="fixed top-0 z-50 w-full border-b border-[rgba(30,42,64,0.5)] bg-[rgba(6,8,16,0.7)] backdrop-blur">
+    <nav className="fixed inset-x-0 top-0 isolate z-[100] w-full overflow-hidden border-b border-[rgba(30,42,64,0.65)] bg-[#060810]/95 shadow-[0_16px_48px_rgba(6,8,16,0.4)] backdrop-blur supports-[backdrop-filter]:bg-[rgba(6,8,16,0.92)]">
       <div className="mx-auto flex h-[60px] max-w-6xl items-center justify-between px-6">
         <div className="flex items-center gap-3">
           <span className="hero-title text-[20px] text-[var(--cyan)]">Vital</span>
@@ -504,7 +504,7 @@ function MovingBorderButton({ href, label, large }: { href: string; label: strin
 
 function StatsBar({ prefersReducedMotion }: { prefersReducedMotion: boolean }) {
   return (
-    <div className="sticky top-[60px] z-40 w-full border-y border-[var(--border)] bg-[rgba(12,17,32,0.8)] backdrop-blur">
+    <div className="sticky top-[60px] z-30 w-full overflow-hidden border-y border-[var(--border)] bg-[rgba(12,17,32,0.86)] backdrop-blur">
       <div className="mx-auto flex h-[72px] max-w-6xl items-center justify-between px-6">
         {stats.map((stat, idx) => (
           <div key={stat.label} className="flex flex-1 items-center justify-center gap-3">

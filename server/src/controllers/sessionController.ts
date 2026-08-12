@@ -645,7 +645,7 @@ export async function updateCalmingSession(req: Request, res: Response, next: Ne
   }
 }
 
-export async function getCalmingSessionsBySession(req: Request, res: Response, next: NextFunction) {
+export async function  getCalmingSessionsBySession(req: Request, res: Response, next: NextFunction) {
   try {
     const user = await getDbUser(req);
     if (!user) return res.status(401).json({ error: "Authentication required" });

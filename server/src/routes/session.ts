@@ -4,6 +4,7 @@ import {
   createSession,
   getBreathingExerciseBySession,
   getCalmingSessionsBySession,
+  getCalmingRecommendation,
   getSessionById,
   getSessions,
   syncSessions,

@@ -4,7 +4,6 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import UserSync from "./(components)/UserSync";
 import Script from "next/script";
-import CrisisButton from "./(components)/CrisisButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,7 +32,6 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
           <UserSync />
-          <CrisisButton />
           {children}
         </body>
       </html>
